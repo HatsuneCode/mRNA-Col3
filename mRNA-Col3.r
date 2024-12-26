@@ -183,7 +183,7 @@ write.table(GSEA, '4.GSEA.xls', sep = '\t', row.names = F)
 df = DEG[DEG$type == 'UVB.Saline vs NoUVB',]
 up1 = df$gene[which(df$avg_log2FC >  log2(1.5) & df$p_val < .05)]
 dn1 = df$gene[which(df$avg_log2FC < -log2(1.5) & df$p_val < .05)]
-df = DEG[DEG$type == 'UVB+hCOL3A1 vs UVB+Saline',]
+df = DEG[DEG$type == 'UVB.hCOL3A1 vs UVB.Saline',]
 up2 = df$gene[which(df$avg_log2FC >  log2(1.5) & df$p_val < .05)]
 dn2 = df$gene[which(df$avg_log2FC < -log2(1.5) & df$p_val < .05)]
 ## venn plot
