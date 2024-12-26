@@ -126,13 +126,51 @@ p  = plot_FP(df, title = 'UVB+hCOL3A1 vs UVB+Saline', logFC = cut); p$plot
 ggsave('3.UVBCOL3vsUVB.volc.pdf', p$plot, w = 7, h = 5.5)
 
 ## 4. GSEA ##
+fGSEA = function(gene, sig = NULL, scoreType = 'std', minSize = 2, maxSize = 500, type = NULL, species = 'Mus musculus') {
+  # species: Homo sapiens / Mus musculus
+  suppressMessages(library(fgsea))
+  suppressMessages(library(msigdbr))
+  if ('KEGG' %in% type) {
+    kegg  = msigdbr(species, 'C2', 'KEGG')
+    keggn = setNames(lapply(unique(kegg$gs_name), function(i)
+      unique(as.character(kegg$gene_symbol)[kegg$gs_name == i])), unique(kegg$gs_name))
+    rm(kegg)
+    sig = keggn
+  }
+  if ('GOBP' %in% type) {
+    bp   = msigdbr(species, 'C5', 'BP')
+    bpn  = setNames(lapply(unique(bp$gs_name), function(i)
+      unique(as.character(bp$gene_symbol)[bp$gs_name == i] )), unique(bp$gs_name))
+    rm(bp)
+    sig = bpn
+  }
+  if ('GOCC' %in% type) {
+    cc   = msigdbr(species, 'C5', 'CC')
+    ccn  = setNames(lapply(unique(cc$gs_name), function(i)
+      unique(as.character(cc$gene_symbol)[cc$gs_name == i] )), unique(cc$gs_name))
+    rm(cc)
+    sig = ccn
+  }
+  if ('GOMF' %in% type) {
+    mf   = msigdbr(species, 'C5', 'MF')
+    mfn  = setNames(lapply(unique(mf$gs_name), function(i)
+      unique(as.character(mf$gene_symbol)[mf$gs_name == i] )), unique(mf$gs_name))
+    rm(mf)
+    sig = mfn
+  }
+  set.seed(1)
+  ## run gsea analysis by fgsea
+  gsea = fgsea(sig, gene, minSize = minSize, maxSize = maxSize, scoreType = scoreType)
+  gsea$gene = unlist(lapply(gsea$leadingEdge, function(i) paste(i, collapse = ', ') ))
+  data.frame(gsea[, c('pathway', 'NES', 'ES', 'pval', 'padj', 'gene')])
+}
 GSEA = do.call(rbind, lapply(c('KEGG', 'GOBP', 'GOMF', 'GOCC'), function(i) {
   message('GSEA: ', i)
   gsea = do.call(rbind, lapply(unique(DEG$type), function(g) {
     message(g)
     tmp = DEG[DEG$type == g,]
     gene = sort(setNames(tmp$avg_log2FC, tmp$gene), T)
-    df = fGSEA(gene, type = i, species = 'Mus musculus')
+    df = fGSEA(gene, type = i)
     df$group = g
     df
   }))
@@ -140,3 +178,17 @@ GSEA = do.call(rbind, lapply(c('KEGG', 'GOBP', 'GOMF', 'GOCC'), function(i) {
   gsea
 }))
 write.table(GSEA, '4.GSEA.xls', sep = '\t', row.names = F)
+
+## 5. venn ##
+df = DEG[DEG$type == 'UVB.Saline vs NoUVB',]
+up1 = df$gene[which(df$avg_log2FC >  log2(1.5) & df$p_val < .05)]
+dn1 = df$gene[which(df$avg_log2FC < -log2(1.5) & df$p_val < .05)]
+df = DEG[DEG$type == 'UVB+hCOL3A1 vs UVB+Saline',]
+up2 = df$gene[which(df$avg_log2FC >  log2(1.5) & df$p_val < .05)]
+dn2 = df$gene[which(df$avg_log2FC < -log2(1.5) & df$p_val < .05)]
+## venn plot
+suppressMessages(library(VennDiagram))
+venn.diagram(list('UVB-Saline' = up1, 'UVB-COL3LNP' = dn2), filename = 'venn.1.png', fill = c('red', 'blue'),
+             disable.logging = T, height = 1600, width = 1600, margin = .15, category.names = c(' ', ' '))
+venn.diagram(list('UVB-Saline' = dn1, 'UVB-COL3LNP' = up2), filename = 'venn.2.png', fill = c('blue', 'red'),
+             disable.logging = T, height = 1600, width = 1600, margin = .15, category.names = c(' ', ' '))
